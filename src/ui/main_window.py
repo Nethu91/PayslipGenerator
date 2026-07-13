@@ -7,6 +7,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 import pythoncom
 
+from src.config import TEMPLATE_FILE, OUTPUT_DIR, ASSETS_DIR
 from src.services.excel_reader import ExcelReader
 from src.services.payslip_generator import PayslipGenerator
 from src.services.pdf_exporter import PdfExporter
@@ -14,18 +15,24 @@ from src.services.pdf_exporter import PdfExporter
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
+RED = "#C0392B"
+RED_HOVER = "#922B21"
+
 
 class PayslipApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
         self.title("Swisstek Payslip Generator")
-        self.geometry("560x420")
+        self.geometry("560x380")
         self.resizable(False, False)
+        icon_path = ASSETS_DIR / "icon.ico"
+        if icon_path.exists():
+            self.iconbitmap(str(icon_path))
 
         self.payroll_path = None
-        self.template_path = None
-        self.output_path = None
+        self.template_path = TEMPLATE_FILE
+        self.output_path = OUTPUT_DIR
         self.employees = []
 
         self._build_ui()
@@ -38,28 +45,40 @@ class PayslipApp(ctk.CTk):
         ).pack(pady=(20, 15))
 
         self._file_row("Payroll Excel", self.browse_payroll, "payroll_label")
-        self._file_row("Template File", self.browse_template, "template_label")
-        self._file_row("Output Folder", self.browse_output, "output_label")
+
+        # Template and output are fixed - shown as read-only info
+        info = ctk.CTkFrame(self, fg_color="transparent")
+        info.pack(pady=(4, 4), padx=20, fill="x")
+        ctk.CTkLabel(
+            info, text=f"Template : {self.template_path.name}",
+            anchor="w", text_color="gray", font=ctk.CTkFont(size=11)
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            info, text=f"Output : {self.output_path}",
+            anchor="w", text_color="gray", font=ctk.CTkFont(size=11)
+        ).pack(anchor="w")
 
         self.export_pdf_var = ctk.BooleanVar(value=True)
         ctk.CTkCheckBox(
-            self, text="Also export as PDF", variable=self.export_pdf_var
-        ).pack(pady=(0, 10))
+            self, text="Also export as PDF", variable=self.export_pdf_var,
+            fg_color=RED, hover_color=RED_HOVER
+        ).pack(pady=(12, 10))
 
         self.employee_count_label = ctk.CTkLabel(self, text="Employees : -")
-        self.employee_count_label.pack(pady=(15, 5))
+        self.employee_count_label.pack(pady=(5, 5))
 
-        self.progress_bar = ctk.CTkProgressBar(self, width=440)
+        self.progress_bar = ctk.CTkProgressBar(self, width=440, progress_color=RED)
         self.progress_bar.set(0)
         self.progress_bar.pack(pady=(0, 15))
 
         self.generate_btn = ctk.CTkButton(
             self, text="Generate Payslips", height=40,
-            command=self.on_generate, state="disabled"
+            command=self.on_generate, state="disabled",
+            fg_color=RED, hover_color=RED_HOVER
         )
         self.generate_btn.pack(pady=(0, 10))
 
-        self.status_label = ctk.CTkLabel(self, text="Status : Waiting for files")
+        self.status_label = ctk.CTkLabel(self, text="Status : Waiting for payroll file")
         self.status_label.pack(pady=(5, 10))
 
     def _file_row(self, label_text, command, attr_name):
@@ -71,7 +90,10 @@ class PayslipApp(ctk.CTk):
         label.pack(side="left", fill="x", expand=True)
         setattr(self, attr_name, label)
 
-        ctk.CTkButton(row, text="Browse", width=80, command=command).pack(side="right")
+        ctk.CTkButton(
+            row, text="Browse", width=80, command=command,
+            fg_color=RED, hover_color=RED_HOVER
+        ).pack(side="right")
 
     # ---------------- BROWSE HANDLERS ----------------
     def browse_payroll(self):
@@ -83,22 +105,6 @@ class PayslipApp(ctk.CTk):
         self.payroll_path = Path(path)
         self.payroll_label.configure(text=self.payroll_path.name, text_color="white")
         self._try_load_employees()
-
-    def browse_template(self):
-        path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
-        if not path:
-            return
-        self.template_path = Path(path)
-        self.template_label.configure(text=self.template_path.name, text_color="white")
-        self._check_ready()
-
-    def browse_output(self):
-        path = filedialog.askdirectory()
-        if not path:
-            return
-        self.output_path = Path(path)
-        self.output_label.configure(text=str(self.output_path), text_color="white")
-        self._check_ready()
 
     # ---------------- LOGIC ----------------
     def _try_load_employees(self):
@@ -115,7 +121,7 @@ class PayslipApp(ctk.CTk):
         self._check_ready()
 
     def _check_ready(self):
-        ready = bool(self.payroll_path and self.template_path and self.output_path and self.employees)
+        ready = bool(self.payroll_path and self.employees)
         self.generate_btn.configure(state="normal" if ready else "disabled")
 
     def on_generate(self):

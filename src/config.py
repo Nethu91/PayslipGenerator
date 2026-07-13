@@ -1,14 +1,18 @@
+import sys
 from pathlib import Path
 
-# Project root (this file is src/config.py, so parent.parent = project root)
-BASE_DIR = Path(__file__).resolve().parent.parent
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys.executable).resolve().parent          # exe's folder (for input/output)
+    BUNDLE_DIR = Path(sys._MEIPASS)                             # bundled read-only resources
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    BUNDLE_DIR = BASE_DIR
 
 INPUT_DIR = BASE_DIR / "input"
 OUTPUT_DIR = BASE_DIR / "output"
-TEMPLATE_DIR = BASE_DIR / "templates"
-ASSETS_DIR = BASE_DIR / "assets"
+ASSETS_DIR = BUNDLE_DIR / "assets"
 
-TEMPLATE_FILE = TEMPLATE_DIR / "Payslip_Template.xlsx"
+TEMPLATE_FILE = BUNDLE_DIR / "templates" / "Payslip_Template.xlsx"
 
 INPUT_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
