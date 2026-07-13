@@ -66,20 +66,30 @@ class ExcelReader:
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
+        if file_path.suffix.lower() == ".csv":
+            return pd.read_csv(file_path, header=1)
+
         return pd.read_excel(file_path, header=1)
 
     def get_pay_period(self, filename):
-        """Reads the title cell (e.g. 'Payslip - Month of June 2026') and
+        """Reads the title row (e.g. 'Payslip - Month of June 2026') and
         extracts 'June 2026'. Falls back to a blank string if not found."""
         file_path = self.input_folder / filename
-        wb = load_workbook(file_path, data_only=True)
-        ws = wb.active
-        title = ws.cell(row=1, column=1).value or ""
-        wb.close()
+
+        if file_path.suffix.lower() == ".csv":
+            with open(file_path, "r", encoding="utf-8") as f:
+                title = f.readline()
+        else:
+            wb = load_workbook(file_path, data_only=True)
+            ws = wb.active
+            title = ws.cell(row=1, column=1).value or ""
+            wb.close()
 
         if "Month of" in title:
             return title.split("Month of", 1)[1].strip()
         return ""
+
+       
 
     def load_employees(self, filename):
         df = self.load_excel(filename)

@@ -5,9 +5,11 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
+import pythoncom
 
 from src.services.excel_reader import ExcelReader
 from src.services.payslip_generator import PayslipGenerator
+from src.services.pdf_exporter import PdfExporter
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -39,6 +41,11 @@ class PayslipApp(ctk.CTk):
         self._file_row("Template File", self.browse_template, "template_label")
         self._file_row("Output Folder", self.browse_output, "output_label")
 
+        self.export_pdf_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(
+            self, text="Also export as PDF", variable=self.export_pdf_var
+        ).pack(pady=(0, 10))
+
         self.employee_count_label = ctk.CTkLabel(self, text="Employees : -")
         self.employee_count_label.pack(pady=(15, 5))
 
@@ -68,7 +75,9 @@ class PayslipApp(ctk.CTk):
 
     # ---------------- BROWSE HANDLERS ----------------
     def browse_payroll(self):
-        path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
+        path = filedialog.askopenfilename(
+            filetypes=[("Excel or CSV files", "*.xlsx *.csv"), ("All files", "*.*")]
+        )
         if not path:
             return
         self.payroll_path = Path(path)
@@ -116,6 +125,8 @@ class PayslipApp(ctk.CTk):
         threading.Thread(target=self._generate_worker, daemon=True).start()
 
     def _generate_worker(self):
+        pythoncom.CoInitialize()
+        pdf_exporter = PdfExporter() if self.export_pdf_var.get() else None
         try:
             generator = PayslipGenerator(
                 template_path=self.template_path,
@@ -124,6 +135,11 @@ class PayslipApp(ctk.CTk):
             total = len(self.employees)
             for i, emp in enumerate(self.employees, start=1):
                 generator.generate(emp, self.pay_period)
+
+                if pdf_exporter:
+                    xlsx_file = self.output_path / f"{emp.epf}_{emp.name}.xlsx"
+                    pdf_exporter.export(xlsx_file)
+
                 self.progress_bar.set(i / total)
                 self.status_label.configure(text=f"Status : Generating {i}/{total} - {emp.name}")
 
@@ -134,6 +150,9 @@ class PayslipApp(ctk.CTk):
             messagebox.showerror("Generation failed", str(e))
             self.status_label.configure(text="Status : Error")
         finally:
+            if pdf_exporter:
+                pdf_exporter.close()
+            pythoncom.CoUninitialize()
             self.generate_btn.configure(state="normal")
 
     def _open_output_folder(self):
