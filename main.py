@@ -1,4 +1,4 @@
-from src.app import start
+from src.ui.main_window import run
 
 if __name__ == "__main__":
-    start()
+    run()
