@@ -3,6 +3,10 @@ Swisstek Payslip Generator
 A desktop application that automates monthly payslip generation for Swisstek Aluminium Limited employees — reads raw payroll data from Excel/CSV and produces individual, formula-driven payslips in Excel format for every employee in seconds.
 
 
+<img width="566" height="418" alt="image" src="https://github.com/user-attachments/assets/56342198-f68f-45fe-bf6d-6abfda93677f" />
+
+
+
  Features
 
 - 🖥️ **Modern desktop GUI** — dark-mode interface built with CustomTkinter
