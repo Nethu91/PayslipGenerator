@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Keep main.spec (needed for icon/datas bundling) - override the *.spec rule above
+!main.spec
+
+# Generated payslip output (sensitive employee data)
+output/
+input/*.xlsx
+input/*.csv

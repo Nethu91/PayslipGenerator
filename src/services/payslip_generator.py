@@ -5,10 +5,10 @@ from openpyxl import load_workbook
 class PayslipGenerator:
 
     def __init__(self, template_path=None, output_folder=None):
-        from src.config import TEMPLATE_FILE, OUTPUT_DIR
+        from src.config import TEMPLATE_FILE, EXCEL_DIR
         self.template = Path(template_path) if template_path else TEMPLATE_FILE
-        self.output = Path(output_folder) if output_folder else OUTPUT_DIR
-        self.output.mkdir(exist_ok=True)
+        self.output = Path(output_folder) if output_folder else EXCEL_DIR
+        self.output.mkdir(parents=True, exist_ok=True)
 
     def generate(self, emp, pay_period=""):
         filename = self.output / f"{emp.epf}_{emp.name}.xlsx"
@@ -75,3 +75,4 @@ class PayslipGenerator:
 
         wb.save(filename)
         wb.close()
+        return filename

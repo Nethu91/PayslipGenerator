@@ -7,7 +7,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 import pythoncom
 
-from src.config import TEMPLATE_FILE, OUTPUT_DIR, ASSETS_DIR
+from src.config import TEMPLATE_FILE, OUTPUT_DIR, EXCEL_DIR, PDF_DIR, ASSETS_DIR
 from src.services.excel_reader import ExcelReader
 from src.services.payslip_generator import PayslipGenerator
 from src.services.pdf_exporter import PdfExporter
@@ -134,17 +134,17 @@ class PayslipApp(ctk.CTk):
         pythoncom.CoInitialize()
         pdf_exporter = PdfExporter() if self.export_pdf_var.get() else None
         try:
-            generator = PayslipGenerator(
-                template_path=self.template_path,
-                output_folder=self.output_path,
-            )
+            # Excel payslips go to output/Excel/ (EXCEL_DIR is the default
+            # inside PayslipGenerator when output_folder isn't passed)
+            generator = PayslipGenerator(template_path=self.template_path)
             total = len(self.employees)
             for i, emp in enumerate(self.employees, start=1):
-                generator.generate(emp, self.pay_period)
+                xlsx_file = generator.generate(emp, self.pay_period)
 
                 if pdf_exporter:
-                    xlsx_file = self.output_path / f"{emp.epf}_{emp.name}.xlsx"
-                    pdf_exporter.export(xlsx_file)
+                    # PDF payslips go to output/PDF/ (kept separate from Excel)
+                    pdf_file = PDF_DIR / f"{emp.epf}_{emp.name}.pdf"
+                    pdf_exporter.export(xlsx_file, pdf_file)
 
                 self.progress_bar.set(i / total)
                 self.status_label.configure(text=f"Status : Generating {i}/{total} - {emp.name}")
@@ -154,7 +154,6 @@ class PayslipApp(ctk.CTk):
             self._open_output_folder()
         except Exception as e:
             messagebox.showerror("Generation failed", str(e))
-            self.status_label.configure(text="Status : Error")
         finally:
             if pdf_exporter:
                 pdf_exporter.close()
