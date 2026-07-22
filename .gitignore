@@ -224,3 +224,10 @@ __marimo__/
 output/
 input/*.xlsx
 input/*.csv
+
+dist/
+build/
+handover/
+*.spec
+*.zip
+output/
