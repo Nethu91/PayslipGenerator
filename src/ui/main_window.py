@@ -7,7 +7,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 import pythoncom
 
-from src.config import TEMPLATE_FILE, OUTPUT_DIR, EXCEL_DIR, PDF_DIR, ASSETS_DIR
+from src.config import TEMPLATE_FILE, EXCEL_DIR, PDF_DIR, ASSETS_DIR
 from src.services.excel_reader import ExcelReader
 from src.services.payslip_generator import PayslipGenerator
 from src.services.pdf_exporter import PdfExporter
@@ -26,13 +26,13 @@ class PayslipApp(ctk.CTk):
         self.title("Swisstek Payslip Generator")
         self.geometry("560x380")
         self.resizable(False, False)
+
         icon_path = ASSETS_DIR / "icon.ico"
         if icon_path.exists():
             self.iconbitmap(str(icon_path))
 
         self.payroll_path = None
         self.template_path = TEMPLATE_FILE
-        self.output_path = OUTPUT_DIR
         self.employees = []
 
         self._build_ui()
@@ -46,7 +46,6 @@ class PayslipApp(ctk.CTk):
 
         self._file_row("Payroll Excel", self.browse_payroll, "payroll_label")
 
-        # Template and output are fixed - shown as read-only info
         info = ctk.CTkFrame(self, fg_color="transparent")
         info.pack(pady=(4, 4), padx=20, fill="x")
         ctk.CTkLabel(
@@ -54,7 +53,7 @@ class PayslipApp(ctk.CTk):
             anchor="w", text_color="gray", font=ctk.CTkFont(size=11)
         ).pack(anchor="w")
         ctk.CTkLabel(
-            info, text=f"Output : {self.output_path}",
+            info, text=f"Output : {EXCEL_DIR.parent}",
             anchor="w", text_color="gray", font=ctk.CTkFont(size=11)
         ).pack(anchor="w")
 
@@ -134,15 +133,16 @@ class PayslipApp(ctk.CTk):
         pythoncom.CoInitialize()
         pdf_exporter = PdfExporter() if self.export_pdf_var.get() else None
         try:
-            # Excel payslips go to output/Excel/ (EXCEL_DIR is the default
-            # inside PayslipGenerator when output_folder isn't passed)
-            generator = PayslipGenerator(template_path=self.template_path)
+            generator = PayslipGenerator(
+                template_path=self.template_path,
+                output_folder=EXCEL_DIR,
+            )
             total = len(self.employees)
             for i, emp in enumerate(self.employees, start=1):
-                xlsx_file = generator.generate(emp, self.pay_period)
+                generator.generate(emp, self.pay_period)
 
                 if pdf_exporter:
-                    # PDF payslips go to output/PDF/ (kept separate from Excel)
+                    xlsx_file = EXCEL_DIR / f"{emp.epf}_{emp.name}.xlsx"
                     pdf_file = PDF_DIR / f"{emp.epf}_{emp.name}.pdf"
                     pdf_exporter.export(xlsx_file, pdf_file)
 
@@ -154,6 +154,7 @@ class PayslipApp(ctk.CTk):
             self._open_output_folder()
         except Exception as e:
             messagebox.showerror("Generation failed", str(e))
+            self.status_label.configure(text="Status : Error")
         finally:
             if pdf_exporter:
                 pdf_exporter.close()
@@ -162,7 +163,7 @@ class PayslipApp(ctk.CTk):
 
     def _open_output_folder(self):
         if sys.platform == "win32":
-            subprocess.Popen(f'explorer "{self.output_path}"')
+            subprocess.Popen(f'explorer "{EXCEL_DIR.parent}"')
 
 
 def run():

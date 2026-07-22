@@ -16,7 +16,8 @@ class PdfExporter:
 
     def _force_a4_single_page(self, ws):
         """
-        Force the worksheet to print as one A4 portrait page.
+        Force the worksheet to print as one A4 portrait page, left-aligned.
+
         IMPORTANT: Zoom must be set to False BEFORE FitToPagesWide/Tall -
         Excel COM ignores fit-to-page while Zoom has a numeric value
         (its default is 100), which is why the PDF was coming out as
@@ -34,7 +35,8 @@ class PdfExporter:
         ps.BottomMargin = 18
         ps.HeaderMargin = 7
         ps.FooterMargin = 7
-        ps.CenterHorizontally = True
+        ps.CenterHorizontally = False   # left-aligned, not centered on the page
+        ps.CenterVertically = False
 
     def export(self, xlsx_path, pdf_path=None):
         xlsx_path = str(xlsx_path)
