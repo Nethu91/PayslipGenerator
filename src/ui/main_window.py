@@ -7,10 +7,11 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 import pythoncom
 
-from src.config import TEMPLATE_FILE, EXCEL_DIR, PDF_DIR, ASSETS_DIR
+from src.config import TEMPLATE_FILE, EXCEL_DIR, PDF_DIR, WORD_DIR, ASSETS_DIR
 from src.services.excel_reader import ExcelReader
 from src.services.payslip_generator import PayslipGenerator
 from src.services.pdf_exporter import PdfExporter
+from src.services.word_converter import pdf_to_word
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -24,7 +25,7 @@ class PayslipApp(ctk.CTk):
         super().__init__()
 
         self.title("Swisstek Payslip Generator")
-        self.geometry("560x380")
+        self.geometry("560x420")
         self.resizable(False, False)
 
         icon_path = ASSETS_DIR / "icon.ico"
@@ -59,9 +60,15 @@ class PayslipApp(ctk.CTk):
 
         self.export_pdf_var = ctk.BooleanVar(value=True)
         ctk.CTkCheckBox(
-            self, text="Also export as PDF", variable=self.export_pdf_var,
+            self, text="Also export as PDF (all employees, one file)", variable=self.export_pdf_var,
             fg_color=RED, hover_color=RED_HOVER
-        ).pack(pady=(12, 10))
+        ).pack(pady=(12, 4))
+
+        self.export_word_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            self, text="Also convert PDF to Word", variable=self.export_word_var,
+            fg_color=RED, hover_color=RED_HOVER
+        ).pack(pady=(0, 10))
 
         self.employee_count_label = ctk.CTkLabel(self, text="Employees : -")
         self.employee_count_label.pack(pady=(5, 5))
@@ -133,22 +140,27 @@ class PayslipApp(ctk.CTk):
         pythoncom.CoInitialize()
         pdf_exporter = PdfExporter() if self.export_pdf_var.get() else None
         try:
-            generator = PayslipGenerator(
-                template_path=self.template_path,
-                output_folder=EXCEL_DIR,
-            )
+            generator = PayslipGenerator(template_path=self.template_path)
+
+            self.status_label.configure(text="Status : Generating combined Excel...")
+            self.progress_bar.set(0.3)
+            xlsx_file = generator.generate_combined(self.employees, self.pay_period)
+
+            pdf_file = None
+            if pdf_exporter:
+                self.status_label.configure(text="Status : Exporting combined PDF...")
+                self.progress_bar.set(0.6)
+                pdf_file = PDF_DIR / "All_Payslips.pdf"
+                pdf_exporter.export_workbook(xlsx_file, pdf_file)
+
+            if pdf_file and self.export_word_var.get():
+                self.status_label.configure(text="Status : Converting PDF to Word...")
+                self.progress_bar.set(0.85)
+                word_file = WORD_DIR / "All_Payslips.docx"
+                pdf_to_word(pdf_file, word_file)
+
+            self.progress_bar.set(1.0)
             total = len(self.employees)
-            for i, emp in enumerate(self.employees, start=1):
-                generator.generate(emp, self.pay_period)
-
-                if pdf_exporter:
-                    xlsx_file = EXCEL_DIR / f"{emp.epf}_{emp.name}.xlsx"
-                    pdf_file = PDF_DIR / f"{emp.epf}_{emp.name}.pdf"
-                    pdf_exporter.export(xlsx_file, pdf_file)
-
-                self.progress_bar.set(i / total)
-                self.status_label.configure(text=f"Status : Generating {i}/{total} - {emp.name}")
-
             self.status_label.configure(text=f"Status : Done - {total} payslips generated")
             messagebox.showinfo("Success", f"{total} payslips generated successfully.")
             self._open_output_folder()

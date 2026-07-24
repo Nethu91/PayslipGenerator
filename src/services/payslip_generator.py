@@ -10,25 +10,19 @@ class PayslipGenerator:
         self.output = Path(output_folder) if output_folder else EXCEL_DIR
         self.output.mkdir(parents=True, exist_ok=True)
 
-    def generate(self, emp, pay_period=""):
-        filename = self.output / f"{emp.epf}_{emp.name}.xlsx"
-
-        wb = load_workbook(self.template)
-        ws = wb.active
-
+    def _fill_sheet(self, ws, emp, pay_period):
         # ---------------- HEADER ----------------
         ws["B2"] = emp.epf
         ws["B3"] = emp.department
         ws["B5"] = emp.name
         ws["B6"] = pay_period
 
-        # ---------------- EARNINGS (input cells only) ----------------
+        # ---------------- EARNINGS ----------------
         ws["B10"] = emp.basic_salary
         ws["B11"] = emp.holiday_pay
         ws["B12"] = emp.no_pay
         ws["B13"] = emp.nopay_revise
         ws["B14"] = emp.salary_adjustment
-        # B15 Total for EPF -> left as formula =SUM(B10:B14)
 
         ws["B17"] = emp.night_shift
         ws["B18"] = emp.saturday_night
@@ -48,10 +42,8 @@ class PayslipGenerator:
         ws["B32"] = emp.chemical_incentive
         ws["B33"] = emp.export_incentive
         ws["B34"] = emp.production_incentive
-        # B35 Gross Salary -> left as formula =B15+SUM(B17:B34)
 
-        # ---------------- DEDUCTIONS (input cells only) ----------------
-        # B38 EPF 8% -> left as formula =B15*0.08
+        # ---------------- DEDUCTIONS ----------------
         ws["B39"] = emp.salary_advance
         ws["B40"] = emp.festival_advance
         ws["B41"] = emp.vision_care
@@ -62,17 +54,63 @@ class PayslipGenerator:
         ws["B46"] = emp.iceu_member_fee
         ws["B47"] = emp.paye_tax
         ws["B48"] = emp.stamp_duty
-        # B49 Total Deductions -> formula =SUM(B38:B48)
-        # B50 Net Salary -> formula =B35-B49
-        # B51 To Be Paid Amount -> formula =B50
 
-        # ---------------- EMPLOYER / INFO ----------------
-        # B53 EPF 12% -> formula =B15*0.12
-        # B54 ETF 3% -> formula =B15*0.03
+        # ---------------- INFO ----------------
         ws["B55"] = emp.casual_leave
         ws["B56"] = emp.rate_per_not
         ws["B57"] = emp.rate_per_dot
 
-        wb.save(filename)
+    def generate_combined(self, employees, pay_period="", filename="All_Payslips.xlsx"):
+        """One workbook, one sheet per employee, formulas preserved per sheet."""
+        wb = load_workbook(self.template)
+        template_ws = wb.active
+
+        used_names = set()
+        for i, emp in enumerate(employees):
+            ws = template_ws if i == 0 else wb.copy_worksheet(template_ws)
+
+            sheet_name = f"{emp.epf}_{emp.name}"[:31]  # Excel sheet-name limit
+            base, n = sheet_name, 1
+            while sheet_name in used_names:
+                suffix = f"_{n}"
+                sheet_name = base[: 31 - len(suffix)] + suffix
+                n += 1
+            used_names.add(sheet_name)
+            ws.title = sheet_name
+
+            self._fill_sheet(ws, emp, pay_period)
+
+        output_path = self.output / filename
+
+        # Remove read-only flag if the file already exists from a previous run
+        if output_path.exists():
+            import os
+            import stat
+            try:
+                os.chmod(output_path, stat.S_IWRITE)
+            except OSError:
+                pass
+
+        # Retry save in case of a transient lock (antivirus, OneDrive, etc.)
+        import time
+        last_err = None
+        for attempt in range(3):
+            try:
+                wb.save(output_path)
+                last_err = None
+                break
+            except PermissionError as e:
+                last_err = e
+                time.sleep(1)
+
         wb.close()
-        return filename
+
+        if last_err is not None:
+            raise PermissionError(
+                f"Could not write to {output_path}.\n"
+                f"Please check that the file is not open in Excel, "
+                f"is not marked Read-only, and is not locked by antivirus/OneDrive.\n"
+                f"Original error: {last_err}"
+            )
+
+        return output_path

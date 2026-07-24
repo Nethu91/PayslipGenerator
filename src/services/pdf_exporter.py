@@ -39,6 +39,7 @@ class PdfExporter:
         ps.CenterVertically = False
 
     def export(self, xlsx_path, pdf_path=None):
+        """Exports ONE worksheet (the first/active sheet) to PDF."""
         xlsx_path = str(xlsx_path)
         pdf_path = str(pdf_path) if pdf_path else xlsx_path.replace(".xlsx", ".pdf")
         excel = self._get_excel()
@@ -47,6 +48,23 @@ class PdfExporter:
             ws = wb.Worksheets(1)
             self._force_a4_single_page(ws)
             ws.ExportAsFixedFormat(0, pdf_path)  # 0 = xlTypePDF
+        finally:
+            wb.Close(SaveChanges=False)
+
+        return pdf_path
+
+    def export_workbook(self, xlsx_path, pdf_path=None):
+        """Exports EVERY sheet in the workbook into ONE combined PDF
+        (used for the all-employees payslip file, one sheet per employee)."""
+        xlsx_path = str(xlsx_path)
+        pdf_path = str(pdf_path) if pdf_path else xlsx_path.replace(".xlsx", ".pdf")
+
+        excel = self._get_excel()
+        wb = excel.Workbooks.Open(xlsx_path)
+        try:
+            for ws in wb.Worksheets:
+                self._force_a4_single_page(ws)
+            wb.ExportAsFixedFormat(0, pdf_path)  # whole workbook -> one PDF
         finally:
             wb.Close(SaveChanges=False)
 
